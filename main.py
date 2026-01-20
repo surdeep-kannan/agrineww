@@ -77,9 +77,11 @@ if PINECONE_API_KEY and GROQ_API_KEY:
     try:
         logger.info("Initializing Pinecone and Groq for RAG chatbot...")
         
-        # Initialize embeddings (using free HuggingFace model locally)
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        # Initialize embeddings using VoyageAI (Cloud API - Lightweight)
+        from langchain_voyageai import VoyageAIEmbeddings
+        embeddings = VoyageAIEmbeddings(
+            voyage_api_key=os.getenv("VOYAGE_API_KEY"),
+            model="voyage-large-2"
         )
         
         # Initialize Pinecone vector store
