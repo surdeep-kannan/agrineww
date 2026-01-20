@@ -1,9 +1,25 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import ee
 import json
 import os
 import time
+from dotenv import load_dotenv
+import logging
+
+# Pinecone and Groq imports for RAG chatbot
+from pinecone import Pinecone
+from langchain_pinecone import PineconeVectorStore
+from langchain_groq import ChatGroq
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.chains import ConversationalRetrievalChain
+
+# Load environment variables
+load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ---------------------------
 #  FASTAPI APP
@@ -23,11 +39,17 @@ app.add_middleware(
 # ---------------------------
 PROJECT_ID = "premium-origin-469307-t0"
 
-service_json = os.getenv("SERVICE_ACCOUNT_JSON")
-if not service_json:
-    raise Exception("SERVICE_ACCOUNT_JSON variable missing")
-
-service_account_info = json.loads(service_json)
+# Try to load from file first, then fall back to environment variable
+service_account_file = "service-account.json"
+if os.path.exists(service_account_file):
+    with open(service_account_file, 'r') as f:
+        service_json = f.read()
+    service_account_info = json.loads(service_json)
+else:
+    service_json = os.getenv("SERVICE_ACCOUNT_JSON")
+    if not service_json:
+        raise Exception("SERVICE_ACCOUNT_JSON variable missing and service-account.json file not found")
+    service_account_info = json.loads(service_json)
 
 credentials = ee.ServiceAccountCredentials(
     email=service_account_info["client_email"],
@@ -36,9 +58,59 @@ credentials = ee.ServiceAccountCredentials(
 
 try:
     ee.Initialize(credentials, project=PROJECT_ID)
-    print("Earth Engine initialized on Railway!")
+    logger.info("Earth Engine initialized successfully!")
 except Exception as e:
-    print("EE initialization failed:", e)
+    logger.error(f"EE initialization failed: {e}")
+
+
+# ---------------------------
+#  PINECONE & GROQ SETUP (RAG CHATBOT)
+# ---------------------------
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "agri-knowledge-base")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+
+# Initialize chatbot components (only if API keys are provided)
+chatbot_chain = None
+if PINECONE_API_KEY and GROQ_API_KEY:
+    try:
+        logger.info("Initializing Pinecone and Groq for RAG chatbot...")
+        
+        # Initialize embeddings (using free HuggingFace model locally)
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+        
+        # Initialize Pinecone vector store
+        vectorstore = PineconeVectorStore(
+            index_name=PINECONE_INDEX_NAME,
+            embedding=embeddings,
+            pinecone_api_key=PINECONE_API_KEY
+        )
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+        
+        # Initialize Groq LLM
+        llm = ChatGroq(
+            groq_api_key=GROQ_API_KEY,
+            model_name=GROQ_MODEL,
+            temperature=0.7
+        )
+        
+        # Create conversational retrieval chain
+        chatbot_chain = ConversationalRetrievalChain.from_llm(
+            llm=llm,
+            retriever=retriever,
+            return_source_documents=True,
+            verbose=False
+        )
+            
+        logger.info("✓ Pinecone and Groq chatbot initialized successfully!")
+    except Exception as e:
+        logger.warning(f"Chatbot initialization failed: {e}")
+        logger.warning("Chatbot endpoint will not be available")
+else:
+    logger.warning("PINECONE_API_KEY or GROQ_API_KEY not found - chatbot disabled")
 
 
 # ---------------------------
@@ -55,6 +127,45 @@ def root():
 @app.get("/test")
 def test():
     return {"message": "API is working!"}
+
+
+# ---------------------------
+#  CHATBOT ENDPOINT (RAG)
+# ---------------------------
+class ChatRequest(BaseModel):
+    user_id: str
+    question: str
+
+@app.post("/ask-chatbot")
+async def ask_chatbot(req: ChatRequest):
+    """
+    Agricultural chatbot endpoint using Pinecone + Groq RAG system.
+    """
+    if not chatbot_chain:
+        return {
+            "answer": "Chatbot is not available. Please configure PINECONE_API_KEY and GROQ_API_KEY in .env file."
+        }
+    
+    try:
+        logger.info(f"Processing chatbot question: {req.question}")
+        
+        # Use the conversational retrieval chain
+        result = chatbot_chain.invoke({
+            "question": req.question,
+            "chat_history": []  # Simple implementation without chat history
+        })
+        
+        answer = result.get("answer", "I couldn't find a relevant answer.")
+        logger.info(f"Chatbot response generated successfully")
+        
+        return {"answer": answer}
+        
+    except Exception as e:
+        logger.error(f"Error in /ask-chatbot: {str(e)}")
+        return {
+            "answer": "I'm sorry, I encountered an error processing your question. Please try again."
+        }
+
 
 
 # ---------------------------
