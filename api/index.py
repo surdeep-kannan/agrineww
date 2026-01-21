@@ -10,6 +10,55 @@ from dotenv import load_dotenv
 import logging
 
 # ---------------------------
+#  FASTAPI APP
+# ---------------------------
+app = FastAPI(title="AgriXVision Backend (GEE)")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------------------------
+#  EARTH ENGINE AUTH
+# ---------------------------
+PROJECT_ID = "premium-origin-469307-t0"
+
+try:
+    # Try to load from file first, then fall back to environment variable
+    service_account_file = "service-account.json"
+    if os.path.exists(service_account_file):
+        with open(service_account_file, 'r') as f:
+            service_json = f.read()
+        service_account_info = json.loads(service_json)
+        
+        credentials = ee.ServiceAccountCredentials(
+            email=service_account_info["client_email"],
+            key_data=service_json
+        )
+        ee.Initialize(credentials, project=PROJECT_ID)
+        logger.info("Earth Engine initialized successfully (from file)!")
+        
+    else:
+        service_json = os.getenv("SERVICE_ACCOUNT_JSON")
+        if service_json:
+            service_account_info = json.loads(service_json)
+            credentials = ee.ServiceAccountCredentials(
+                email=service_account_info["client_email"],
+                key_data=service_json
+            )
+            ee.Initialize(credentials, project=PROJECT_ID)
+            logger.info("Earth Engine initialized successfully (from env var)!")
+        else:
+            logger.warning("SERVICE_ACCOUNT_JSON not found. Earth Engine will not work.")
+
+except Exception as e:
+    logger.error(f"EE initialization failed: {e}")
+
+# ---------------------------
 #  CHATBOT ENDPOINT (Direct Groq)
 # ---------------------------
 from groq import Groq
