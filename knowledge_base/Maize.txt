@@ -1,0 +1,84 @@
+~~
+
+Maize
+
+Table of contents
+
+1. Introduction
+
+2. Maize production technologies
+
+3. Expert system for Maize
+
+4. All India Coordinated Research Project (AICRP) on Maize
+
+Introduction
+
+In India , maize is the 3 most important food crops after rice and wheat. Among the
+maize growing countries, India rank 4th in area and 7th in production, representing
+around 4% of the world maize area and 2% of total production. It is cultivated in
+83.33 lakh fa (2023-24) under a wide range of agro-ecological situations. As per First
+Advance Estimates, the estimated production of maize during 2023-24 is 224.82 Lakh
+Metric Tonnes.
+
+Maize in India , contributes nearly 8 % in the national food basket and more than Rs.
+100 billion to the agricultural GDP at current prices apart from the providing
+employment to over 100 million man-days at the farm and downstream agricultural
+and industrial sectors. In addition to staple food for human being and quality feed
+for animals, maize serves as a basic raw material as an ingredient to thousands of
+industrial products that includes starch, oil, protein, alcoholic beverages, food
+sweeteners, pharmaceutical, cosmetic, film, textile, gum, package and paper
+industries etc.
+
+Maize production technologies
+
+1. Hybrids of Maize |
+
+2. Normal Maize Production Technology |@
+3. Baby corn production |
+
+4. State-wise recommendations for Maize
+5. Information resources related to Maize |
+
+Expert system for Maize
+
+
+Ine Expert system Tor Iviaize Lrop emulates tne Interaction a user MIgnt nave witn a
+human expert to solve a problem. It is meant to enhance the efficiency of farmers or
+Agricultural Extension personnel for maize crop management and to increase the
+crop yield. It determines the best strategy for irrigating, applying fertilizer and
+insecticides. Presently, it has four subsystems: Variety Selection, Cultural Practices,
+Disease Diagnosis, Insect Identification, and Post Harvest Technology. The Variety
+Selection subsystem advises location specific varieties and Cultural Practices advises
+on the aspects of irrigating, application of fertilizers and insecticides. Disease
+Diagnosis and Insect Identification subsystems help the stake-holders to diagnoses
+the disease and to identify insects affecting the maize crop and suggest preventive
+and control measures. Post Harvest Technology subsystem deals with storage and
+processing of maize for developing value added products.
+
+To visit the expert system for maize, click here @.
+
+All India Coordinated Research Project (AICRP) on Maize
+
+All India Coordinated Research Project (AICRP) on Maize was established in 1957.
+Development and release of widely adapted high yielding cultivars resistant to major
+diseases and insect pests through extensive multidisciplinary and multi-location
+testing was the objective of AICRP on Maize. It also aimed at shorten time of
+adaptation, exchange of ideas on germplasm and avoiding duplication of breeding
+efforts. Besides crop improvement, it is also involved in development of location-
+specific/climate resilient technologies for improved production and protection
+practices. These activities are currently carried out at 32 regular and 29 volunteer
+centres located in different agro-ecological regions of the country to meet the
+challenges of growing demand for maize at the national level.
+
+To know more, click here !@.,
+
+Source: Indian Institute of Maize Research |@
+
+Source: https://data.vikaspedia.in/short/Ic?k=OY4r_oKpIG7tNnFhLOPtUw
+
++
+
+IN
+
+
