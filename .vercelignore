@@ -1,0 +1,8 @@
+
+venv/
+venvcopy/
+backend/venvcopy/
+__pycache__/
+*.pyc
+.env
+service-account.json
