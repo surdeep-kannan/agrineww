@@ -8,132 +8,21 @@ import time
 from dotenv import load_dotenv
 import logging
 
-# Pinecone and Groq imports for RAG chatbot
-from pinecone import Pinecone
-from langchain_pinecone import PineconeVectorStore
-from langchain_groq import ChatGroq
-
-from langchain.chains import ConversationalRetrievalChain
-
-# Load environment variables
-load_dotenv()
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # ---------------------------
-#  FASTAPI APP
+#  CHATBOT ENDPOINT (Direct Groq)
 # ---------------------------
-app = FastAPI(title="AgriXVision Backend (GEE)")
+from groq import Groq
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ---------------------------
-#  EARTH ENGINE AUTH
-# ---------------------------
-PROJECT_ID = "premium-origin-469307-t0"
-
-# Try to load from file first, then fall back to environment variable
-service_account_file = "service-account.json"
-if os.path.exists(service_account_file):
-    with open(service_account_file, 'r') as f:
-        service_json = f.read()
-    service_account_info = json.loads(service_json)
-else:
-    service_json = os.getenv("SERVICE_ACCOUNT_JSON")
-    if not service_json:
-        raise Exception("SERVICE_ACCOUNT_JSON variable missing and service-account.json file not found")
-    service_account_info = json.loads(service_json)
-
-credentials = ee.ServiceAccountCredentials(
-    email=service_account_info["client_email"],
-    key_data=service_json
-)
-
-try:
-    ee.Initialize(credentials, project=PROJECT_ID)
-    logger.info("Earth Engine initialized successfully!")
-except Exception as e:
-    logger.error(f"EE initialization failed: {e}")
-
-
-# ---------------------------
-#  PINECONE & GROQ SETUP (RAG CHATBOT)
-# ---------------------------
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "agri-knowledge-base")
+# Initialize Groq Client
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-
-# Initialize chatbot components (only if API keys are provided)
-chatbot_chain = None
-if PINECONE_API_KEY and GROQ_API_KEY:
+groq_client = None
+if GROQ_API_KEY:
     try:
-        logger.info("Initializing Pinecone and Groq for RAG chatbot...")
-        
-        # Initialize embeddings using VoyageAI (Cloud API - Lightweight)
-        from langchain_voyageai import VoyageAIEmbeddings
-        embeddings = VoyageAIEmbeddings(
-            voyage_api_key=os.getenv("VOYAGE_API_KEY"),
-            model="voyage-large-2"
-        )
-        
-        # Initialize Pinecone vector store
-        vectorstore = PineconeVectorStore(
-            index_name=PINECONE_INDEX_NAME,
-            embedding=embeddings,
-            pinecone_api_key=PINECONE_API_KEY
-        )
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
-        
-        # Initialize Groq LLM
-        llm = ChatGroq(
-            groq_api_key=GROQ_API_KEY,
-            model_name=GROQ_MODEL,
-            temperature=0.7
-        )
-        
-        # Create conversational retrieval chain
-        chatbot_chain = ConversationalRetrievalChain.from_llm(
-            llm=llm,
-            retriever=retriever,
-            return_source_documents=True,
-            verbose=False
-        )
-            
-        logger.info("✓ Pinecone and Groq chatbot initialized successfully!")
+        groq_client = Groq(api_key=GROQ_API_KEY)
+        logger.info("✓ Groq client initialized successfully!")
     except Exception as e:
-        logger.warning(f"Chatbot initialization failed: {e}")
-        logger.warning("Chatbot endpoint will not be available")
-else:
-    logger.warning("PINECONE_API_KEY or GROQ_API_KEY not found - chatbot disabled")
+        logger.warning(f"Groq initialization failed: {e}")
 
-
-# ---------------------------
-#  ROOT ROUTE
-# ---------------------------
-@app.get("/")
-def root():
-    return {"status": "GEE Backend Running on Railway!"}
-
-
-# ---------------------------
-#  TEST ROUTE
-# ---------------------------
-@app.get("/test")
-def test():
-    return {"message": "API is working!"}
-
-
-# ---------------------------
-#  CHATBOT ENDPOINT (RAG)
-# ---------------------------
 class ChatRequest(BaseModel):
     user_id: str
     question: str
@@ -141,23 +30,33 @@ class ChatRequest(BaseModel):
 @app.post("/ask-chatbot")
 async def ask_chatbot(req: ChatRequest):
     """
-    Agricultural chatbot endpoint using Pinecone + Groq RAG system.
+    Direct Agricultural chatbot using Groq API (Llama-3).
     """
-    if not chatbot_chain:
+    if not groq_client:
         return {
-            "answer": "Chatbot is not available. Please configure PINECONE_API_KEY and GROQ_API_KEY in .env file."
+            "answer": "Chatbot is not available. Please configure GROQ_API_KEY in .env file."
         }
     
     try:
         logger.info(f"Processing chatbot question: {req.question}")
         
-        # Use the conversational retrieval chain
-        result = chatbot_chain.invoke({
-            "question": req.question,
-            "chat_history": []  # Simple implementation without chat history
-        })
-        
-        answer = result.get("answer", "I couldn't find a relevant answer.")
+        system_prompt = (
+            "You are an expert agricultural AI assistant named AgriXVision. "
+            "Your goal is to help farmers with crop health, soil, and weather advice. "
+            "Be helpful, concise, and accurate."
+        )
+
+        chat_completion = groq_client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": req.question}
+            ],
+            model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            temperature=0.7,
+            max_tokens=500,
+        )
+
+        answer = chat_completion.choices[0].message.content
         logger.info(f"Chatbot response generated successfully")
         
         return {"answer": answer}
