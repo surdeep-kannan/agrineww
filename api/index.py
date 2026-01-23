@@ -7,7 +7,9 @@ import json
 import os
 import time
 from dotenv import load_dotenv
+load_dotenv()
 import logging
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +35,8 @@ PROJECT_ID = "premium-origin-469307-t0"
 
 try:
     # Try to load from file first, then fall back to environment variable
-    service_account_file = "service-account.json"
+    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    service_account_file = os.path.join(script_dir, "service-account.json")
     if os.path.exists(service_account_file):
         with open(service_account_file, 'r') as f:
             service_json = f.read()
@@ -75,7 +78,7 @@ if GROQ_API_KEY:
         groq_client = Groq(api_key=GROQ_API_KEY)
         logger.info("✓ Groq client initialized successfully!")
     except Exception as e:
-        logger.warning(f"Groq initialization failed: {e}")
+        logger.error(f"Groq initialization failed: {e}")
 
 class ChatRequest(BaseModel):
     user_id: str
@@ -136,34 +139,34 @@ def get_field_health(lat: float, lon: float):
         start_date = end_date.advance(-90, 'day')
 
         # Sentinel-2
-        s2 = (
+        s2_collection = (
             ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
             .filterBounds(field_aoi)
             .filterDate(start_date, end_date)
             .sort("CLOUDY_PIXEL_PERCENTAGE")
-            .first()
         )
+        s2 = s2_collection.first() if s2_collection.size().getInfo() > 0 else None
 
         # Sentinel-1 (Radar)
-        s1 = (
+        s1_collection = (
             ee.ImageCollection("COPERNICUS/S1_GRD")
             .filterBounds(field_aoi)
             .filterDate(start_date, end_date)
             .filter(ee.Filter.eq("instrumentMode", "IW"))
             .filter(ee.Filter.listContains("transmitterReceiverPolarisation", "VV"))
             .sort("system:time_start", False)
-            .first()
         )
+        s1 = s1_collection.first() if s1_collection.size().getInfo() > 0 else None
 
         # Landsat (Temperature)
-        landsat = (
+        landsat_collection = (
             ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
             .merge(ee.ImageCollection("LANDSAT/LC09/C02/T1_L2"))
             .filterBounds(field_aoi)
             .filterDate(start_date, end_date)
             .sort("CLOUD_COVER")
-            .first()
         )
+        landsat = landsat_collection.first() if landsat_collection.size().getInfo() > 0 else None
 
         # Soil Organic Carbon
         soc_image = ee.Image("projects/soilgrids-isric/soc_mean")
@@ -261,4 +264,6 @@ def get_field_health(lat: float, lon: float):
         return response
 
     except Exception as e:
+        logger.error(f"GEE Processing Error: {str(e)}")
+        traceback.print_exc()
         return {"error": f"GEE Processing Error: {str(e)}"}
